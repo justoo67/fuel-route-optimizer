@@ -139,11 +139,22 @@
     <script>
         // Initialize Leaflet Map centered on US
         const map = L.map('map').setView([39.8283, -98.5795], 4);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        // Base tile layers (100% free, zero API key required)
+        const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            attribution: 'Tiles &copy; Esri &mdash; Sources: Esri, DeLorme, USGS, NPS'
         }).addTo(map);
+
+        const osmFr = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+            maxZoom: 20,
+            attribution: '&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        });
+
+        // Layer control for instant map switching
+        L.control.layers({
+            "Esri Street (Recommended)": esriStreet,
+            "OSM OpenMap": osmFr
+        }, null, { position: 'topright' }).addTo(map);
 
         let routeLayerGroup = L.layerGroup().addTo(map);
 
