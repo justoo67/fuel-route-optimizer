@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel Route Optimizer - US Long-Haul Logistics</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        #map { height: 580px; width: 100%; border-radius: 0.75rem; z-index: 10; }
+        .custom-stop-marker {
+            background-color: #f59e0b;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            color: #ffffff;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🚛</span>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-tight">US Truck Route & Fuel Optimizer</h1>
+                    <p class="text-xs text-slate-400">500-Mile Range • 10 MPG • Lowest Cost Fuel Stop Planning</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-900/60 text-emerald-300 border border-emerald-700">
+                    API Active: POST /api/routes/
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        <!-- Input Controls -->
+        <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-5 shadow-xl">
+            <form id="routeForm" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div class="md:col-span-4">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Start Location</label>
+                    <input type="text" id="startInput" value="Chicago, IL" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. Chicago, IL or lat,lon">
+                </div>
+                <div class="md:col-span-4">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Destination Location</label>
+                    <input type="text" id="destInput" value="Dallas, TX" required
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g. Dallas, TX or lat,lon">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Corridor Buffer</label>
+                    <select id="corridorInput" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="5">5 miles</option>
+                        <option value="10" selected>10 miles</option>
+                        <option value="15">15 miles</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <button type="submit" id="submitBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-all duration-150 flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30">
+                        <span id="btnText">Plan Route</span>
+                        <svg id="btnSpinner" class="animate-spin h-4 w-4 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Metrics Dashboard -->
+        <div id="metricsPanel" class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-medium">Distance</p>
+                <p id="distMetric" class="text-xl font-bold text-white mt-1">-- mi</p>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-medium">Drive Duration</p>
+                <p id="durMetric" class="text-xl font-bold text-white mt-1">-- hrs</p>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-medium">Fuel Consumed</p>
+                <p id="fuelConsumedMetric" class="text-xl font-bold text-sky-400 mt-1">-- gal</p>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4">
+                <p class="text-xs text-slate-400 uppercase font-medium">Fuel Purchased</p>
+                <p id="fuelPurchasedMetric" class="text-xl font-bold text-amber-400 mt-1">-- gal</p>
+            </div>
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 col-span-2 md:col-span-1">
+                <p class="text-xs text-slate-400 uppercase font-medium">Total Fuel Spent</p>
+                <p id="costMetric" class="text-2xl font-black text-emerald-400 mt-1">$0.00</p>
+            </div>
+        </div>
+
+        <!-- Map & Stops Split Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Map Container -->
+            <div class="lg:col-span-8 bg-slate-800/50 border border-slate-700/80 rounded-xl p-2 shadow-2xl">
+                <div id="map"></div>
+            </div>
+
+            <!-- Recommended Fuel Stops List -->
+            <div class="lg:col-span-4 bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 flex flex-col h-[596px]">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-700">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-200">Recommended Fuel Stops</h2>
+                    <span id="stopsCountBadge" class="bg-blue-900/60 text-blue-300 text-xs px-2 py-0.5 rounded-full border border-blue-700">0 stops</span>
+                </div>
+                <div id="stopsList" class="flex-1 overflow-y-auto space-y-3 mt-3 pr-1 text-sm">
+                    <p class="text-slate-400 text-center py-12 text-xs">Enter a route above to compute optimal refueling stops.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Raw JSON API Output Section -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <details>
+                <summary class="text-xs font-semibold uppercase tracking-wider text-slate-400 cursor-pointer hover:text-white">
+                    View Live API JSON Response (DRF POST /api/routes/)
+                </summary>
+                <pre id="jsonViewer" class="mt-3 p-4 bg-slate-900 text-emerald-300 rounded-lg text-xs overflow-x-auto font-mono max-h-72">
+// JSON response will appear here after route calculation
+                </pre>
+            </details>
+        </div>
+    </main>
+
+    <script>
+        // Initialize Leaflet Map centered on US
+        const map = L.map('map').setView([39.8283, -98.5795], 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let routeLayerGroup = L.layerGroup().addTo(map);
+
+        // Form handler
+        document.getElementById('routeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const start = document.getElementById('startInput').value.trim();
+            const destination = document.getElementById('destInput').value.trim();
+            const corridor = parseFloat(document.getElementById('corridorInput').value);
+
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+
+            submitBtn.disabled = true;
+            btnText.textContent = "Calculating...";
+            btnSpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/routes/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        start: start,
+                        destination: destination,
+                        corridor_radius_miles: corridor
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById('jsonViewer').textContent = JSON.stringify(data, null, 2);
+
+                if (!response.ok) {
+                    alert(`Error (${response.status}): ${data.message || data.error || 'Failed to calculate route'}`);
+                    return;
+                }
+
+                renderRouteAndStops(data);
+            } catch (err) {
+                alert('Network or server error: ' + err.message);
+            } finally {
+                submitBtn.disabled = false;
+                btnText.textContent = "Plan Route";
+                btnSpinner.classList.add('hidden');
+            }
+        });
+
+        function renderRouteAndStops(data) {
+            routeLayerGroup.clearLayers();
+
+            // Update Metrics
+            document.getElementById('distMetric').textContent = `${data.route.distance_miles.toFixed(1)} mi`;
+            document.getElementById('durMetric').textContent = `${data.route.duration_hours.toFixed(1)} hrs`;
+            document.getElementById('fuelConsumedMetric').textContent = `${data.fuel.total_gallons_consumed.toFixed(1)} gal`;
+            document.getElementById('fuelPurchasedMetric').textContent = `${data.fuel.total_gallons_purchased.toFixed(1)} gal`;
+            document.getElementById('costMetric').textContent = `$${data.fuel.total_fuel_cost.toFixed(2)}`;
+            document.getElementById('stopsCountBadge').textContent = `${data.stops.length} stop${data.stops.length !== 1 ? 's' : ''}`;
+
+            // Draw Route GeoJSON
+            if (data.route.geometry) {
+                const geoJsonLayer = L.geoJSON(data.route.geometry, {
+                    style: { color: '#3b82f6', weight: 5, opacity: 0.85 }
+                }).addTo(routeLayerGroup);
+                map.fitBounds(geoJsonLayer.getBounds(), { padding: [40, 40] });
+            }
+
+            // Start & End Markers
+            const startMarker = L.circleMarker([data.origin.latitude, data.origin.longitude], {
+                radius: 8, fillColor: '#10b981', color: '#ffffff', weight: 2, fillOpacity: 1
+            }).bindPopup(`<b>Origin:</b> ${data.origin.display_name}`).addTo(routeLayerGroup);
+
+            const endMarker = L.circleMarker([data.destination.latitude, data.destination.longitude], {
+                radius: 8, fillColor: '#ef4444', color: '#ffffff', weight: 2, fillOpacity: 1
+            }).bindPopup(`<b>Destination:</b> ${data.destination.display_name}`).addTo(routeLayerGroup);
+
+            // Populate Fuel Stops List & Markers
+            const stopsContainer = document.getElementById('stopsList');
+            stopsContainer.innerHTML = '';
+
+            if (data.stops.length === 0) {
+                stopsContainer.innerHTML = `
+                    <div class="bg-emerald-950/40 border border-emerald-800/80 rounded-lg p-3 text-xs text-emerald-300">
+                        <b>No refueling needed!</b><br>
+                        Trip distance (${data.route.distance_miles} mi) is within initial vehicle range (500 mi).
+                    </div>`;
+                return;
+            }
+
+            data.stops.forEach((stop, idx) => {
+                // Leaflet Custom Numbered Marker
+                const markerIcon = L.divIcon({
+                    className: 'custom-stop-marker',
+                    html: `<span>${idx + 1}</span>`,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 14]
+                });
+
+                const stopMarker = L.marker([stop.latitude, stop.longitude], { icon: markerIcon }).addTo(routeLayerGroup);
+                stopMarker.bindPopup(`
+                    <div class="text-xs leading-relaxed">
+                        <b class="text-sm font-bold text-amber-700">Stop #${idx + 1}: ${stop.name}</b><br>
+                        <span>${stop.address}, ${stop.city}, ${stop.state}</span><br>
+                        <hr class="my-1 border-slate-300">
+                        <b>Mile Marker:</b> ${stop.mile_marker} mi<br>
+                        <b>Price:</b> $${stop.price_per_gallon.toFixed(3)}/gal<br>
+                        <b>Purchased:</b> ${stop.gallons_purchased} gal<br>
+                        <b class="text-emerald-700">Cost: $${stop.cost.toFixed(2)}</b>
+                    </div>
+                `);
+
+                // Sidebar Card
+                const card = document.createElement('div');
+                card.className = "bg-slate-800 border border-slate-700/80 hover:border-amber-500 rounded-lg p-3 transition cursor-pointer";
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span class="inline-block bg-amber-500/20 text-amber-400 font-bold text-[10px] px-2 py-0.5 rounded">STOP #${idx + 1} • MILE ${stop.mile_marker}</span>
+                            <h3 class="font-bold text-white text-xs mt-1 leading-snug">${stop.name}</h3>
+                            <p class="text-[11px] text-slate-400">${stop.city}, ${stop.state}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-bold text-emerald-400">$${stop.cost.toFixed(2)}</span>
+                            <p class="text-[10px] text-slate-400">${stop.gallons_purchased} gal</p>
+                        </div>
+                    </div>
+                    <div class="mt-2 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Price: <b class="text-white">$${stop.price_per_gallon.toFixed(3)}</b>/gal</span>
+                        <span>Fuel After: <b class="text-white">${stop.fuel_after_departure_gal}</b> gal</span>
+                    </div>
+                `;
+                card.addEventListener('click', () => {
+                    stopMarker.openPopup();
+                    map.setView([stop.latitude, stop.longitude], 10);
+                });
+                stopsContainer.appendChild(card);
+            });
+        }
+
+        // Auto trigger default route on load for immediate preview
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('routeForm').dispatchEvent(new Event('submit'));
+        });
+    </script>
+</body>
+</html>

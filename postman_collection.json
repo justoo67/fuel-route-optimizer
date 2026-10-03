@@ -1,0 +1,106 @@
+{
+  "info": {
+    "_postman_id": "fuel-route-planner-api",
+    "name": "Fuel Route Optimizer API",
+    "description": "API collection for testing the US Long-Haul Fuel Route Optimizer assessment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Standard Route: Chicago to Dallas",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"destination\": \"Dallas, TX\",\n  \"corridor_radius_miles\": 10.0\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/routes/",
+          "protocol": "http",
+          "host": ["127", "0", "0", "1"],
+          "port": "8000",
+          "path": ["api", "routes", ""]
+        },
+        "description": "Standard cross-regional route testing multi-stop optimization under the 500-mile range constraint."
+      }
+    },
+    {
+      "name": "2. Short Route (<500 mi): New York to Washington DC",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"New York, NY\",\n  \"destination\": \"Washington, DC\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/routes/",
+          "protocol": "http",
+          "host": ["127", "0", "0", "1"],
+          "port": "8000",
+          "path": ["api", "routes", ""]
+        },
+        "description": "Short route verifying that 0 gallons are purchased because initial 50-gallon tank is sufficient."
+      }
+    },
+    {
+      "name": "3. Cross-Country Route: Los Angeles to New York",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"destination\": \"New York, NY\",\n  \"corridor_radius_miles\": 10.0\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/routes/",
+          "protocol": "http",
+          "host": ["127", "0", "0", "1"],
+          "port": "8000",
+          "path": ["api", "routes", ""]
+        },
+        "description": "2,800-mile transcontinental route verifying multi-tank lookahead refueling."
+      }
+    },
+    {
+      "name": "4. Direct Coordinates Input",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"41.8781, -87.6298\",\n  \"destination\": \"32.7767, -96.7970\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/routes/",
+          "protocol": "http",
+          "host": ["127", "0", "0", "1"],
+          "port": "8000",
+          "path": ["api", "routes", ""]
+        },
+        "description": "Route planning using raw GPS coordinates without requiring text geocoding."
+      }
+    }
+  ]
+}
